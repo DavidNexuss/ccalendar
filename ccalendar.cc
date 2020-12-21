@@ -15,17 +15,38 @@
 #include <sys/wait.h>
 using namespace std;
 
+int nthOccurrence(const std::string& str, const std::string& findMe, int nth)
+{
+    size_t  pos = 0;
+    int     cnt = 0;
+
+    while( cnt != nth )
+    {
+        pos+=1;
+        pos = str.find(findMe, pos);
+        if ( pos == std::string::npos )
+            return -1;
+        cnt++;
+    }
+    return pos;
+}
+
+
 struct Entry {
     long timestamp;
     string name;
     int year,month,day;
-
+    int type = 0;
     bool operator < (const Entry &a ) const { return a.timestamp < a.timestamp; }
 };
 
 long timestamp(long year,long month,long day)
 {
     return year * 365 + month*30 + day;
+}
+long monthstamp(long year,long month)
+{
+    return year * 12 + month;
 }
 std::istream &operator >> (std::istream & is, Entry& ent)
 {
@@ -47,6 +68,10 @@ std::istream &operator >> (std::istream & is, Entry& ent)
     ent.month = months - 1;
     ent.day = days;
     getline(is,ent.name);
+    ent.type = ent.name.find("Festa") != std::string::npos;
+    ent.type += 2;
+    int idx = ent.name.find("|");
+    ent.name.erase(0,idx + 1);
     return is;
 }
 string get_calendar()
@@ -60,7 +85,7 @@ string get_calendar()
         close(pipe_fd[0]);
         close(1);
         dup2(pipe_fd[1],1);
-        execlp("cal","cal",NULL);
+        execlp("cal","cal","-n","2",NULL);
     }
     close(pipe_fd[1]);
 
@@ -74,18 +99,20 @@ string get_calendar()
     return res;
 }
 
+static string color_codes_ch[4] = {"\033[0m","\e[0;34m","\e[0;31m","\e[0;32m"};
+static string color_codes[4] = {"909090","50bbff","df2445","80ff80"};
 template<bool conky>
 inline int print_entry(int idx,const vector<Entry>& entries,const vector<int>& important_days,int dyear,int dmonth,int dday)
 {
-    static string color_codes_ch[3] = {"\033[0m","\e[0;31m","\e[0;34m"};
-    static string color_codes[3] = {"909090","df2445","50bbff"};
+
     if (idx < entries.size())
     {
         const Entry& ent = entries[idx];
         int color = 0;
-        if (ent.month == dmonth && ent.year == dyear)
+        int i;
+        if ((i = monthstamp(ent.year,ent.month) - monthstamp(dyear,dmonth) )<= 1)
         {
-            color = important_days[ent.day];
+            color = important_days[ent.day + i * 32];
         }
         if (conky)
         printf("    [ ${color %s}%2.2i/%2.2i/%2.2i${color} ] %s\n",color_codes[color].c_str(),ent.day,ent.month + 1,ent.year + 1900,ent.name.c_str());
@@ -100,55 +127,65 @@ inline int print_entry(int idx,const vector<Entry>& entries,const vector<int>& i
 template <bool conky>
 void print(vector<Entry>& entries,string& cal,int dyear,int dmonth,int dday)
 {
-    vector<int> important_days(32);
+    vector<int> important_days(64);
     for (auto& ent : entries)
     {
-        if (ent.month == dmonth && ent.year == dyear)
+        int i;
+        if ((i = monthstamp(ent.year,ent.month) - monthstamp(dyear,dmonth) )<= 1)
         {
-            important_days[ent.day] = 1;
+            important_days[ent.day + (i)*32] = ent.type;
         }
     }
-    important_days[dday] = 2;
+    important_days[dday] = 1;
     stringstream ss(cal);
     string monthname;
     string year;
     string line;
     int idx = 0;
 
-    ss >> monthname >> year;
-    cout << "    " << monthname << " " << year << "  ";
+
+    getline(ss,line);
+    cout << line;
     idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
     getline(ss,line);
-    getline(ss,line);
-    cout << "lu ma mi ju vi sá do";
-    idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
-    string color_codes_ch[3] = {"\033[0m","\e[0;31m","\e[0;34m"};
-    string color_codes[3] = {"909090","df2445","50bbff"};
     while(getline(ss,line))
     {
-        stringstream ss2(line);
-        int n;
-        while(ss2 >> n)
+        vector<string> lines;
+        int l = 21;
+        for (size_t i = 0; i < line.size(); i+=l)
         {
-            if (important_days[n])
+            lines.push_back(line.substr(i,min(l + i + 1,line.size())));
+            if (i > 0) lines.back().erase(0,1);
+        }
+        int cal = 0;
+        for(auto& line2: lines)
+        {
+            stringstream ss2(line2);
+            int n;
+            while(ss2 >> n)
             {
-                int token = line.find(to_string(n),0);
-                if (token != std::string::npos)
+                int idx = n + cal*32;
+                if (important_days[idx])
                 {
-                    line.erase(token,to_string(n).size());
-                    if (conky)
-                    line.insert(token,"${color " + color_codes[important_days[n]] + "}" + to_string(n) + "${color}");
-                    else 
-                    line.insert(token,color_codes_ch[important_days[n]] + to_string(n) + color_codes_ch[0]);
+                    int token = line2.find(to_string(n));
+                    if (token != std::string::npos)
+                    {
+                        line2.erase(token,to_string(n).size());
+                        if (conky)
+                        line2.insert(token,"${color " + color_codes[important_days[idx]] + "}" + to_string(n) + "${color}");
+                        else 
+                        line2.insert(token,color_codes_ch[important_days[idx]] + to_string(n) + color_codes_ch[0]);
+                    }
                 }
             }
+            cal++;
+            cout << line2;  
         }
-        cout << line;
-        idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);  
+        idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
     }
     while(idx < entries.size())
     {
-        cout << "                    ";
+        cout << "                                          ";
         idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
     }
 }
@@ -177,7 +214,7 @@ int main(int argc,char* argv[])
     vector<Entry> entries;
     while(cin >> stamp)
     {
-        if (stamp.timestamp > current)
+        if (stamp.timestamp >= current)
         {
             entries.push_back(Entry(stamp));
         }
