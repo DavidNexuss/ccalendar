@@ -99,8 +99,8 @@ string get_calendar()
     return res;
 }
 
-static string color_codes_ch[4] = {"\033[0m","\e[0;34m","\e[0;31m","\e[0;32m"};
-static string color_codes[4] = {"909090","50bbff","df2445","80ff80"};
+const static string color_codes_ch[4] = {"\033[0m","\e[0;34m","\e[0;31m","\e[0;32m"};
+const static string color_codes[4] = {"909090","50bbff","df2445","80ff80"};
 template<bool conky>
 inline int print_entry(int idx,const vector<Entry>& entries,const vector<int>& important_days,int dyear,int dmonth,int dday)
 {
@@ -162,19 +162,24 @@ void print(vector<Entry>& entries,string& cal,int dyear,int dmonth,int dday)
         {
             stringstream ss2(line2);
             int n;
+            int accum = 0;
             while(ss2 >> n)
             {
                 int idx = n + cal*32;
                 if (important_days[idx])
                 {
-                    int token = line2.find(to_string(n));
+                    int token = line2.find(to_string(n),accum);
                     if (token != std::string::npos)
                     {
                         line2.erase(token,to_string(n).size());
+                        string data;
                         if (conky)
-                        line2.insert(token,"${color " + color_codes[important_days[idx]] + "}" + to_string(n) + "${color}");
+                        data = "${color " + color_codes[important_days[idx]] + "}" + to_string(n) + "${color}";
                         else 
-                        line2.insert(token,color_codes_ch[important_days[idx]] + to_string(n) + color_codes_ch[0]);
+                        data = color_codes_ch[important_days[idx]] + to_string(n) + color_codes_ch[0];
+                        
+                        line2.insert(token,data);
+                        accum = token + data.size();
                     }
                 }
             }
