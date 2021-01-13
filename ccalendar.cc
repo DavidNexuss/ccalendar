@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
 #include <locale>
 #include <iomanip>
 #include <set>
@@ -10,43 +11,54 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sstream>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <algorithm>
+
 using namespace std;
 
-int nthOccurrence(const std::string& str, const std::string& findMe, int nth)
-{
-    size_t  pos = 0;
-    int     cnt = 0;
-
-    while( cnt != nth )
-    {
-        pos+=1;
-        pos = str.find(findMe, pos);
-        if ( pos == std::string::npos )
-            return -1;
-        cnt++;
-    }
-    return pos;
-}
-
-
+unordered_map<string,int> color_map;
+vector<string> color_codes;
 struct Entry {
     long timestamp;
     string name;
     int year,month,day;
+    int hour, minute;
     int type = 0;
-    bool operator < (const Entry &a ) const { return a.timestamp < a.timestamp; }
+    bool hour_time = false;
+
+    bool operator < (const Entry &a ) const { 
+        return timestamp < a.timestamp || (
+            (timestamp == a.timestamp && hour < a.hour) || (
+                (hour == a.hour && minute < a.minute)
+            )
+        ); 
+    }
 };
 
-long timestamp(long year,long month,long day)
+inline long monthstamp(long year,long month)
+{
+    return year * 12 + month;
+}
+
+inline long timestamp(long year,long month,long day)
 {
     return year * 365 + month*30 + day;
 }
-long monthstamp(long year,long month)
+std::string & ltrim(std::string & str)
 {
-    return year * 12 + month;
+  auto it2 =  std::find_if( str.begin() , str.end() , [](char ch){ return !std::isspace<char>(ch , std::locale::classic() ) ; } );
+  str.erase( str.begin() , it2);
+  return str;   
+}
+
+std::string & rtrim(std::string & str)
+{
+  auto it1 =  std::find_if( str.rbegin() , str.rend() , [](char ch){ return !std::isspace<char>(ch , std::locale::classic() ) ; } );
+  str.erase( it1.base() , str.end() );
+  return str;   
 }
 std::istream &operator >> (std::istream & is, Entry& ent)
 {
@@ -68,10 +80,34 @@ std::istream &operator >> (std::istream & is, Entry& ent)
     ent.month = months - 1;
     ent.day = days;
     getline(is,ent.name);
-    ent.type = ent.name.find("Festa") != std::string::npos;
-    ent.type += 2;
     int idx = ent.name.find("|");
-    ent.name.erase(0,idx + 1);
+    ent.hour_time = false;
+    if (idx != string::npos)
+    {
+        /*
+        string type = ent.name.substr(0,idx);
+        ltrim(rtrim(type));
+        if (type == "")
+        {
+            is >> ent.hour >> ent.minute;
+            ent.hour_time = true;
+        }
+        else ent.type = color_map[type];*/
+
+        stringstream ss(ent.name);
+        string word;
+        while(ss >> word && word != "|")
+        {
+            if (word == "Time")
+            {
+                ss >> ent.hour >> ent.minute;
+                ent.hour_time = true;
+            } else ent.type = color_map[word];      
+        }
+
+        ent.name.erase(0,idx + 1);
+    }
+    else ent.type = 2;
     return is;
 }
 string get_calendar()
@@ -98,9 +134,29 @@ string get_calendar()
     }
     return res;
 }
+std::tm make_tm(int year, int month, int day)
+{
+    std::tm tm = {0};
+    tm.tm_year = year; // years count from 1900
+    tm.tm_mon = month;    // months count from January=0
+    tm.tm_mday = day;         // days count from 1
+    return tm;
+}
 
 const static string color_codes_ch[4] = {"\033[0m","\e[0;34m","\e[0;31m","\e[0;32m"};
-const static string color_codes[4] = {"909090","50bbff","df2445","80ff80"};
+
+template<bool conky> 
+void print_date(const char* color,int d,int m,int y)
+{
+    if(conky) printf(" [ ${color %s}%2.2i/%2.2i/%2.2i${color} ] ",color,d,m,y);
+    else printf(" [ %s%2.2i/%2.2i/%2.2i%s ] ",color,d,m,y,color_codes_ch[0].c_str());
+}
+template<bool conky> 
+void print_hour(const char* color,int h,int m)
+{
+    if(conky) printf(" [ ${color %s}%2.2i:%2.2i${color} ] ",color,h,m);
+    else printf(" [ %s%2.2i:%2.2i%s ] ",color,h,m,color_codes_ch[0].c_str());
+}
 template<bool conky>
 inline int print_entry(int idx,const vector<Entry>& entries,const vector<int>& important_days,int dyear,int dmonth,int dday)
 {
@@ -108,17 +164,63 @@ inline int print_entry(int idx,const vector<Entry>& entries,const vector<int>& i
     if (idx < entries.size())
     {
         const Entry& ent = entries[idx];
-        int color = 0;
+        int color = ent.type;
+        if (ent.day == dday) color = 1;
+        /*
         int i;
         if ((i = monthstamp(ent.year,ent.month) - monthstamp(dyear,dmonth) )<= 1)
         {
             color = important_days[ent.day + i * 32];
         }
-        if (conky)
-        printf("    [ ${color %s}%2.2i/%2.2i/%2.2i${color} ] %s\n",color_codes[color].c_str(),ent.day,ent.month + 1,ent.year + 1900,ent.name.c_str());
-        else 
-        printf("    [ %s%2.2i/%2.2i/%2.2i%s ] %s\n",color_codes_ch[color].c_str(),ent.day,ent.month + 1,ent.year + 1900,color_codes_ch[0].c_str(),ent.name.c_str());
+        */
 
+        std::time_t difference;
+        {
+
+            std::tm tm1 = make_tm(ent.year,ent.month,ent.day);    // April 2nd, 2012
+            std::tm tm2 = make_tm(dyear,dmonth,dday);    // February 2nd, 2003
+
+            // Arithmetic time values.
+            // On a posix system, these are seconds since 1970-01-01 00:00:00 UTC
+            std::time_t time1 = std::mktime(&tm1);
+            std::time_t time2 = std::mktime(&tm2);
+
+            // Divide by the number of seconds in a day
+            const int seconds_per_day = 60*60*24;
+            difference = (time1 - time2) / seconds_per_day;    
+
+        }
+        int d = ent.day;
+        int m = ent.month + 1;
+        int y = ent.year + 1900;
+        int h = ent.hour;
+        int mi = ent.minute;
+
+        
+        printf("    ");
+        if (conky)
+        {
+            print_date<true>(color_codes[color].c_str(),d,m,y);
+            if (ent.hour_time) print_hour<true>(color_codes[color].c_str(),h,mi);
+        }
+        else
+        {
+            if (color > 3) color = 2;
+            print_date<false>(color_codes_ch[color].c_str(),d,m,y);
+            if (ent.hour_time) print_hour<false>(color_codes_ch[color].c_str(),h,mi);
+        }
+        
+        printf("%d %s\n",difference,ent.name.c_str());
+        
+       /*
+        if (conky)
+        if (!ent.hour_time)printf("    [ ${color %s}%2.2i/%2.2i/%2.2i${color} ] %d %s\n",color_codes[color].c_str(),ent.day,ent.month + 1,ent.year + 1900,difference,ent.name.c_str());
+        else
+        {
+            if (color > 3) color = 2;
+            printf("    [ %s%2.2i/%2.2i/%2.2i%s ] %d %s\n",color_codes_ch[color].c_str(),ent.day,ent.month + 1,ent.year + 1900,color_codes_ch[0].c_str(),difference,ent.name.c_str());
+        }
+        */
         return idx + 1;
     }
     cout << endl;
@@ -148,6 +250,8 @@ void print(vector<Entry>& entries,string& cal,int dyear,int dmonth,int dday)
     cout << line;
     idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
     getline(ss,line);
+    cout << line;
+    idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
     while(getline(ss,line))
     {
         vector<string> lines;
@@ -175,9 +279,12 @@ void print(vector<Entry>& entries,string& cal,int dyear,int dmonth,int dday)
                         string data;
                         if (conky)
                         data = "${color " + color_codes[important_days[idx]] + "}" + to_string(n) + "${color}";
-                        else 
-                        data = color_codes_ch[important_days[idx]] + to_string(n) + color_codes_ch[0];
-                        
+                        else
+                        {
+                            int color = important_days[idx];
+                            if (color > 3) color = 2;
+                            data = color_codes_ch[color] + to_string(n) + color_codes_ch[0];
+                        }
                         line2.insert(token,data);
                         accum = token + data.size();
                     }
@@ -194,22 +301,22 @@ void print(vector<Entry>& entries,string& cal,int dyear,int dmonth,int dday)
         idx = print_entry<conky>(idx,entries,important_days,dyear,dmonth,dday);
     }
 }
+void read_colors()
+{
+    color_codes.push_back("808080");
+    color_codes.push_back("80ffff");
+    color_codes.push_back("ff5050");
+    string name,color;
+    while(cin >> name && name != "END")
+    {
+        cin >> color;
+        color_codes.push_back(color);
+        color_map[name] = color_codes.size() - 1;
+    }
+}
 int main(int argc,char* argv[])
 {
-    /*
-    int pipe_fd[2];
-    pipe(pipe_fd);
-    int f = fork();
-
-    if (f == 0)
-    {
-        close(0);
-        dup2(pipe_fd[0],0);
-        execlp("cat","cat",NULL);
-    }
-    close(1);
-    dup2(pipe_fd[1],1);*/
-
+    read_colors();
     bool conky = false;
     if (argc > 1 && string(argv[1]) == "-c") conky = true;
     time_t t = time(NULL);
