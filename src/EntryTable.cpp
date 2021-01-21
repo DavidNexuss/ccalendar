@@ -9,8 +9,7 @@ void EntryTable::readEntryTable()
 {
     Entry ent;
     Entry today;
-    time_t t = time(NULL);
-    today.tm = *localtime(&t);
+    today.tm = calendar.currentDay;
     long current = today.timestamp();
     long current_mon = today.monthstamp();
     long diff;
@@ -26,7 +25,7 @@ void EntryTable::readEntryTable()
     }
 }
 
-void EntryTable::printEntryTable(int i,int offset)
+void EntryTable::printEntryTable(int i,int offset) const
 {
     while(i < entries.size())
     {
@@ -36,7 +35,7 @@ void EntryTable::printEntryTable(int i,int offset)
     }
 }
 
-void EntryTable::printCalendar(const string& cal)
+void EntryTable::printCalendar(const string& cal) const
 {
     stringstream stream(cal);
     string cal_line;

@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <ctime>
 
 std::string getCalendar();
 
@@ -9,8 +10,11 @@ struct Calendar
 {
     std::unordered_map<std::string,int> color_map;
     std::vector<std::string> color_codes;
+
     void readColors();
     bool useConky = false;
+
+    std::tm currentDay;
 };
 
 extern Calendar calendar;

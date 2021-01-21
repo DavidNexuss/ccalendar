@@ -8,6 +8,6 @@ struct EntryTable
     
     EntryTable();
     void readEntryTable();
-    void printCalendar(const std::string& cal);
-    void printEntryTable(int i = 0,int offset = 0);
+    void printCalendar(const std::string& cal) const;
+    void printEntryTable(int i = 0,int offset = 0) const;
 };
