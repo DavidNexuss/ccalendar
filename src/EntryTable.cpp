@@ -30,7 +30,7 @@ void EntryTable::printEntryTable(int i,int offset) const
     while(i < entries.size())
     {
         for(int j = 0; j < offset; j++) cout << " ";
-        entries[i++].print();
+        cout << entries[i++];
         cout << endl;
     }
 }
@@ -42,10 +42,10 @@ void EntryTable::printCalendar(const string& cal) const
     int entry_index = 0;
 
     getline(stream, cal_line); cout << cal_line;
-    if (entry_index < entries.size()) entries[entry_index++].print();
+    if (entry_index < entries.size()) cout << entries[entry_index++];
     cout << endl;
     getline(stream, cal_line); cout << cal_line;
-    if (entry_index < entries.size()) entries[entry_index++].print();
+    if (entry_index < entries.size()) cout << entries[entry_index++];
     cout << endl;
     
     int cal_size = 0;
@@ -88,7 +88,7 @@ void EntryTable::printCalendar(const string& cal) const
             cal++;
             cout << week;
         }
-        if (entry_index < entries.size()) entries[entry_index++].print();
+        if (entry_index < entries.size()) cout << entries[entry_index++];
         cout << endl;
     }
     printEntryTable(entry_index,cal_size);

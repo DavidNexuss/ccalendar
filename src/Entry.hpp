@@ -33,36 +33,9 @@ struct Entry
         return a < b || (a == b && hourstamp() < other.hourstamp());
     }
 
-    template<bool conky> 
-    void print_hour() const
-    {
-        if(conky) printf(" [ ${color %s}%2.2i:%2.2i${color} ] ",calendar.color_codes[type].c_str(),hour,minute);
-        else printf(" [ %s%2.2i:%2.2i%s ] ",color_codes_ch[type].c_str(),hour,minute,"\e[39m");
-    }
-    
-    template<bool conky> 
-    void print_date() const
-    {
-        if(conky) printf(" [ ${color %s}%2.2i/%2.2i/%2.2i${color} ] ",calendar.color_codes[type].c_str(),day(),month(),year());
-        else printf(" [ %s%2.2i/%2.2i/%2.2i%s ] ",color_codes_ch[type].c_str(),day(),month(),year(),"\e[39m");
-
-        printf("%d ",timestamp() - make_timestamp(calendar.currentDay));
-    }
-
-    template<bool conky>
-    void print_entry() const
-    {
-        printf("  ");
-        print_date<conky>();
-        if (hour_time) print_hour<conky>();
-        std::cout << name;
-    }
-
-    void print() const
-    {
-        if (calendar.useConky) print_entry<true>();
-        else print_entry<false>();
-    }
+    void print_hour(std::ostream& out) const;
+    void print_date(std::ostream& out) const;
 };
 
 std::istream &operator >> (std::istream & is, Entry& ent);
+std::ostream &operator << (std::ostream & os, const Entry& ent);

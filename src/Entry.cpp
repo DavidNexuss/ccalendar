@@ -59,3 +59,25 @@ istream &operator >> (istream & is, Entry& ent)
     else ent.type = 0;
     return is;
 }
+void Entry::print_hour(std::ostream & out) const
+{
+    if(calendar.useConky) printf(" [ ${color %s}%2.2i:%2.2i${color} ] ",calendar.color_codes[type].c_str(),hour,minute);
+    else printf(" [ %s%2.2i:%2.2i%s ] ",color_codes_ch[type].c_str(),hour,minute,"\e[39m");
+}
+
+void Entry::print_date(std::ostream & out) const
+{
+    if(calendar.useConky) printf(" [ ${color %s}%2.2i/%2.2i/%2.2i${color} ] ",calendar.color_codes[type].c_str(),day(),month(),year());
+    else printf(" [ %s%2.2i/%2.2i/%2.2i%s ] ",color_codes_ch[type].c_str(),day(),month(),year(),"\e[39m");
+
+    printf("%d ",timestamp() - make_timestamp(calendar.currentDay));
+}
+std::ostream &operator << (std::ostream & os,const Entry& ent)
+{
+    printf("  ");
+    ent.print_date(os);
+    if (ent.hour_time) ent.print_hour(os);
+    os << ent.name;
+    return os;
+}
+
