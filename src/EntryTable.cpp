@@ -4,23 +4,26 @@
 
 using namespace std;
 
-EntryTable::EntryTable() : important_days(64) { }
+#define CALENDAR_SIZE 32
+EntryTable::EntryTable() : important_days(CALENDAR_SIZE * 2) { }
+
+inline int importantDaysIndex(const std::tm & tm){
+    return tm.tm_mday + ( make_month_timestamp(tm) - make_month_timestamp(calendar.currentDay))*CALENDAR_SIZE;
+}
 void EntryTable::readEntryTable()
 {
     Entry ent;
-    Entry today;
-    today.tm = calendar.currentDay;
-    long current = today.timestamp();
-    long current_mon = today.monthstamp();
-    long diff;
+    long current = make_timestamp(calendar.currentDay);
+    important_days[importantDaysIndex(calendar.currentDay)] = 1;
     while(cin >> ent)
     {
+        long diff;
         if ((diff = ent.timestamp() - current) >= 0)
         {
             if (diff == 0) ent.today();
 
             entries.push_back(ent);
-            important_days[ent.tm.tm_mday + (ent.monthstamp() - current_mon)*32] = ent.type;
+            important_days[importantDaysIndex(ent.tm)] = ent.type;
         }
     }
 }
@@ -53,7 +56,7 @@ void EntryTable::printCalendar(const string& cal) const
     {
         cal_size = max(cal_size,int(cal_line.size()));
         vector<string> weeks;
-        int l = 21;
+        int l = 21; //Week size magic number
         for(int i = 0; i < cal_line.size(); i+=l)
         {
             weeks.push_back(cal_line.substr(i,min(l + i + 1,int(cal_line.size()))));
@@ -66,7 +69,7 @@ void EntryTable::printCalendar(const string& cal) const
             int d,accum = 0;
             while(day_stream >> d)
             {
-                int idx = d + cal*32;
+                int idx = d + cal*CALENDAR_SIZE;
                 if (important_days[idx])
                 {
                     int token = week.find(to_string(d),accum);
