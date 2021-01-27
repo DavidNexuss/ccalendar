@@ -15,6 +15,10 @@ std::tm make_tm(int year, int month, int day)
 void Entry::set(int dyear,int dmonth,int dday)
 {
     tm = make_tm(dyear,dmonth,dday);
+
+    if (dyear == -1) tm.tm_year = calendar.currentDay.tm_year;
+    if (dmonth == -1) tm.tm_mon = calendar.currentDay.tm_mon;
+    if (dday == -1) tm.tm_mday = calendar.currentDay.tm_mday;
 }
 istream &operator >> (istream & is, Entry& ent)
 {
