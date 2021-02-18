@@ -1,7 +1,7 @@
 #include "EntryTable.hpp"
 #include <iostream>
 #include <sstream>
-
+#include <algorithm>
 using namespace std;
 
 #define CALENDAR_SIZE 32
@@ -17,8 +17,8 @@ void EntryTable::readEntryTable()
     important_days[importantDaysIndex(calendar.currentDay)] = 1;
     while(cin >> ent)
     {
-        long diff;
-        if ((diff = ent.timestamp() - current) >= 0)
+        long diff = ent.timestamp() - current;
+        if (diff >= 0 && diff <= CALENDAR_SIZE*2)
         {
             if (diff == 0) ent.today();
 
@@ -26,6 +26,8 @@ void EntryTable::readEntryTable()
             important_days[importantDaysIndex(ent.tm)] = ent.type;
         }
     }
+
+    sort(entries.begin(),entries.end());
 }
 
 void EntryTable::printEntryTable(int i,int offset) const
